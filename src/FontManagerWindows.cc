@@ -72,15 +72,15 @@ char *getString(IDWriteFont *font, DWRITE_INFORMATIONAL_STRING_ID string_id) {
     // convert to utf8
     res = utf16ToUtf8(str);
     delete str;
-    
+
     strings->Release();
   }
-  
+
   if (!res) {
     res = new char[1];
     res[0] = '\0';
   }
-  
+
   return res;
 }
 
@@ -123,8 +123,14 @@ FontDescriptor *resultFromFont(IDWriteFont *font) {
       char *style = getString(font, DWRITE_INFORMATIONAL_STRING_WIN32_SUBFAMILY_NAMES);
 
       // this method requires windows 7, so we need to cast to an IDWriteFontFace1
-      IDWriteFontFace1 *face1 = static_cast<IDWriteFontFace1 *>(face);
-      bool monospace = face1->IsMonospacedFont() == TRUE;
+      bool monospace = false;
+  	  IDWriteFontFace1* face1 = NULL;
+  	  HRESULT hr1 = face->QueryInterface(__uuidof(IDWriteFontFace1), (void**)&face1);
+  	  if (SUCCEEDED(hr1)) {
+  		  monospace = face1->IsMonospacedFont() == TRUE;
+  	  }
+      //IDWriteFontFace1 *face1 = static_cast<IDWriteFontFace1 *>(face);
+      //bool monospace = face1->IsMonospacedFont() == TRUE;
 
       res = new FontDescriptor(
         psName,
@@ -184,15 +190,20 @@ ResultSet *getAvailableFonts() {
     int fontCount = family->GetFontCount();
 
     for (int j = 0; j < fontCount; j++) {
-      IDWriteFont *font = NULL;
-      HR(family->GetFont(j, &font));
+			IDWriteFont *font = NULL;
+			HR(family->GetFont(j, &font));
 
-      FontDescriptor *result = resultFromFont(font);
-      if (psNames.count(result->postscriptName) == 0) {
-        res->push_back(resultFromFont(font));
-        psNames.insert(result->postscriptName);
-      }
-    }
+			FontDescriptor *result = resultFromFont(font);
+			const char* name = result->postscriptName;
+			if (strlen(result->postscriptName) == 0) {
+				name = result->family;
+			}
+
+			if (psNames.count(name) == 0) {
+				res->push_back(result);
+				psNames.insert(name);
+			}
+		}
 
     family->Release();
   }
@@ -251,14 +262,14 @@ FontDescriptor *findFont(FontDescriptor *desc) {
     delete fonts;
 
     FontDescriptor *fallback = new FontDescriptor(
-      NULL, NULL, NULL, NULL, 
+      NULL, NULL, NULL, NULL,
       desc->weight, desc->width, desc->italic, false
     );
 
     fonts = findFonts(fallback);
   }
 
-  // ok, nothing. shouldn't happen often. 
+  // ok, nothing. shouldn't happen often.
   // just return the first available font
   if (fonts->size() == 0) {
     delete fonts;
