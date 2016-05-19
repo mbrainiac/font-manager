@@ -4,6 +4,8 @@ env:
   - NODE_VERSION=5
   - NODE_VERSION=6
 
+sudo: required
+
 addons:
   apt:
     sources:
